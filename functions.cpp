@@ -122,3 +122,217 @@ void showSourceSystem(SourceSystem * sourceSystem)
         }
     }
 }
+
+DNF * ProductAndDNF(Product * product, DNF * dnf)
+{
+    DNF * result = new DNF;
+    int size = dnf->products.size();
+    int sizeProduct = product->namesVariables.size();
+    bool cont = false;
+
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            int index = dnf->products[i]->namesVariables.indexOf(
+                        product->namesVariables[j]);
+            if (index >= 0)
+            {
+                if (dnf->products[i]->zeroOrOne[index] != product->zeroOrOne[j])
+                {
+                    cont = true;
+                }
+            }
+        }
+        if (cont)
+        {
+            cont = false;
+            continue;
+        }
+        Product * newProduct = new Product;
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            newProduct->namesVariables.push_back(product->namesVariables[j]);
+            newProduct->zeroOrOne + product->zeroOrOne[j];
+        }
+        int sizeIProduct = dnf->products[i]->namesVariables.size();
+        for (int j = 0; j < sizeIProduct; ++j)
+        {
+            if (!newProduct->namesVariables.contains(dnf->products[i]->namesVariables[j]))
+            {
+                newProduct->namesVariables.push_back(dnf->products[i]->namesVariables[j]);
+                newProduct->zeroOrOne + dnf->products[i]->zeroOrOne[j];
+            }
+        }
+        result->products.push_back(newProduct);
+    }
+    reduceDNF(result);
+    absorbDNF(result);
+    return result;
+}
+
+bool CompareProducts(Product * product1, Product * product2)
+{
+    if (product1->namesVariables.size() != product2->namesVariables.size())
+    {
+        return false;
+    }
+    int size = product1->namesVariables.size();
+    for (int i = 0; i < size; ++i)
+    {
+        int index = product2->namesVariables.indexOf(product1->namesVariables[i]);
+        if (index >= 0)
+        {
+            if (product2->zeroOrOne[index] != product1->zeroOrOne[i])
+                return false;
+            else
+                continue;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+DNF * DNF_OR_DNF(DNF * dnf1, DNF * dnf2)
+{
+    DNF * result = new DNF;
+    int sizeDNF1 = dnf1->products.size();
+    for (int i = 0; i < sizeDNF1; ++i)
+    {
+        Product * newProduct = new Product;
+        int sizeProduct = dnf1->products[i]->namesVariables.size();
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            newProduct->namesVariables.push_back(dnf1->products[i]->namesVariables[j]);
+            newProduct->zeroOrOne + dnf1->products[i]->zeroOrOne[j];
+        }
+        result->products.push_back(newProduct);
+    }
+    int sizeDNF2 = dnf2->products.size();
+    bool cont = false;
+    for (int i = 0; i < sizeDNF2; ++i)
+    {
+        for (int j = 0; j < sizeDNF1; ++j)
+        {
+            if (CompareProducts(dnf1->products[j], dnf2->products[i]))
+            {
+                cont = true;
+                break;
+            }
+        }
+        if (cont)
+        {
+            cont = false;
+            continue;
+        }
+        Product * newProduct = new Product;
+        int sizeProduct = dnf2->products[i]->namesVariables.size();
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            newProduct->namesVariables.push_back(dnf2->products[i]->namesVariables[j]);
+            newProduct->zeroOrOne + dnf2->products[i]->zeroOrOne[j];
+        }
+        result->products.push_back(newProduct);
+    }
+    reduceDNF(result);
+    absorbDNF(result);
+    return result;
+}
+
+DNF * DNF_AND_DNF(DNF * dnf1, DNF * dnf2)
+{
+    DNF * result = new DNF;
+    int sizeDnf2 = dnf2->products.size();
+    for (int i = 0; i < sizeDnf2; ++i)
+    {
+        DNF * partDNF = ProductAndDNF(dnf2->products[i], dnf1);
+        DNF * forResult = DNF_OR_DNF(partDNF, result);
+        removeDNF(result);
+        result = forResult;
+    }
+    reduceDNF(result);
+    absorbDNF(result);
+    return result;
+}
+
+void removeProduct(Product * product)
+{
+    int size = product->namesVariables.size();
+    for (int i = 0; i < size; ++i)
+    {
+        delete product->namesVariables[i];
+    }
+}
+
+void removeDNF(DNF * dnf)
+{
+    int size = dnf->products.size();
+    for (int i = 0; i < size; ++i)
+    {
+        removeProduct(dnf->products[i]);
+    }
+    dnf->products.clear();
+}
+
+void showDNF(DNF * dnf)
+{
+    int size = dnf->products.size();
+    for (int i = 0; i < size; ++i)
+    {
+        int sizeProduct = dnf->products[i]->namesVariables.size();
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            if (dnf->products[i]->zeroOrOne[j] == '0')
+            {
+                std::cout << "!";
+            }
+            std::cout << dnf->products[i]->namesVariables[j];
+            if (j != sizeProduct - 1)
+            {
+                std::cout << "*";
+            }
+        }
+        if (i != size - 1)
+        {
+            std::cout << "+";
+        }
+    }
+}
+
+void reduceDNF(DNF * dnf)
+{
+    int size = dnf->products.size();
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = i + 1; j < size; ++j)
+        {
+            if (CompareProducts(dnf->products[i], dnf->products[j]))
+            {
+                dnf->products.remove(j);
+                size--;
+            }
+        }
+    }
+}
+
+DNF * inversionDNF(DNF * dnf)
+{
+    DNF * result = new DNF;
+
+
+
+    return result;
+}
+
+void absorbDNF(DNF * dnf)
+{
+
+}
+
+bool absorbProduct(Product * product1, Product * product2)
+{
+
+}

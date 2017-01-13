@@ -51,4 +51,15 @@ struct SourceSystem
     QMap <QString, Element *> blocks;
 };
 
+struct Product
+{
+    QVector <QString *> namesVariables;
+    QString zeroOrOne;
+};
+
+struct DNF
+{
+    QVector <Product *> products;
+};
+
 #endif // GLOBAL_H
