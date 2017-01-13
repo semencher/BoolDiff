@@ -23,10 +23,20 @@ void showDNF(DNF * dnf);
 
 void reduceDNF(DNF * dnf);
 
+DNF * inversionProduct(Product * product);
+
 DNF * inversionDNF(DNF * dnf);
 
 void absorbDNF(DNF * dnf);
 
 bool absorbProduct(Product * product1, Product * product2);
+
+DNF * getDNF(Element * element);
+
+QString correctDNF(DNF * dnf, SourceSystem * sourceSystem);
+
+DNF * substitute(DNF * dnf, QString sym, DNF * substitution);
+
+QVector <DNF *> algorithm(SourceSystem * sourceSystem);
 
 #endif // FUNCTIONS_H
