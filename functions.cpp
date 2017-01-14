@@ -2,6 +2,17 @@
 
 using std::cout;
 
+bool validWord(std::string word)
+{
+    int size = word.size();
+    for (int i = 0; i < size; ++i)
+    {
+        if (word[i] != '0' && word[i] != '1' && word[i] != '-')
+            return false;
+    }
+    return true;
+}
+
 void readSourceSystem(SourceSystem * sourceSystem, QString blif)
 {
     std::ifstream file;
@@ -59,7 +70,7 @@ void readSourceSystem(SourceSystem * sourceSystem, QString blif)
             std::string input;
             file >> input;
             file >> word;
-            while(word[0] != '0' && word[0] != '1' && word[0] != '-')
+            while(!validWord(word))
             {
                 element->namesInputsElement.push_back(
                             new QString(QString::fromStdString(input)));
@@ -123,29 +134,78 @@ void showSourceSystem(SourceSystem * sourceSystem)
     }
 }
 
-DNF * ProductAndDNF(Product * product, DNF * dnf)
+Product * equalProduct(Product * product)
 {
-    DNF * result = new DNF;
-    int size = dnf->products.size();
-    int sizeProduct = product->namesVariables.size();
-    bool cont = false;
-
+    if (product == NULL)
+    {
+        return NULL;
+    }
+    Product * result = new Product;
+    int size = product->namesVariables.size();
     for (int i = 0; i < size; ++i)
     {
-        for (int j = 0; j < sizeProduct; ++j)
+        result->namesVariables.push_back(new QString(*(product->namesVariables[i])));
+        result->zeroOrOne = result->zeroOrOne + product->zeroOrOne[i];
+    }
+    return result;
+}
+
+DNF * equalDNF(DNF * dnf)
+{
+    if (dnf == NULL)
+    {
+        return NULL;
+    }
+    DNF * result = new DNF;
+    int size = dnf->products.size();
+    for (int i = 0; i < size; ++i)
+    {
+        if (dnf->products[i] != NULL)
+        result->products.push_back(equalProduct(dnf->products[i]));
+    }
+    return result;
+}
+
+Product * ProductAndProduct(Product * product1, Product * product2)
+{
+    if (product1 == NULL || product2 == NULL)
+        return NULL;
+    if (product1->namesVariables.size() == 0)
+    {
+        return equalProduct(product2);
+    }
+    if (product2->namesVariables.size() == 0)
+    {
+        return equalProduct(product1);
+    }
+    int sizeProduct1 = product1->namesVariables.size();
+    int sizeProduct2 = product2->namesVariables.size();
+    bool inv = false;
+    for (int i = 0; i < sizeProduct1; ++i)
+    {
+        for (int j = 0; j < sizeProduct2; ++j)
         {
-            int index = -1;
-            for (int k = 0; k < size; ++k)
+            if (*(product1->namesVariables[i]) == *(product2->namesVariables[j]))
             {
-                if (*(dnf->products[i]->namesVariables[k]) == *(product->namesVariables[j]))
-                    index = k;
-            }
-            if (index >= 0)
-            {
-                if (dnf->products[i]->zeroOrOne[index] != product->zeroOrOne[j])
+                if (product1->zeroOrOne[i] != product2->zeroOrOne[j])
                 {
-                    cont = true;
+                    inv = true;
                 }
+            }
+        }
+    }
+    if (inv)
+        return NULL;
+    Product * result = equalProduct(product1);
+    bool cont = false;
+    for (int i = 0; i < sizeProduct2; ++i)
+    {
+        for (int j = 0; j < sizeProduct1; ++j)
+        {
+            if (*(result->namesVariables[j]) == *(product2->namesVariables[i]))
+            {
+                cont = true;
+                break;
             }
         }
         if (cont)
@@ -153,22 +213,47 @@ DNF * ProductAndDNF(Product * product, DNF * dnf)
             cont = false;
             continue;
         }
-        Product * newProduct = new Product;
-        for (int j = 0; j < sizeProduct; ++j)
+        result->namesVariables.push_back(new QString(*(product2->namesVariables[i])));
+        result->zeroOrOne = result->zeroOrOne + product2->zeroOrOne[i];
+    }
+    return result;
+}
+
+DNF * ProductAndDNF(Product * product, DNF * dnf)
+{
+    if (dnf == NULL || product == NULL)
+        return NULL;
+    else
+    {
+        if (product->namesVariables.size() == 0)
         {
-            newProduct->namesVariables.push_back(new QString(*(product->namesVariables[j])));
-            newProduct->zeroOrOne = newProduct->zeroOrOne + product->zeroOrOne[j];
+            return equalDNF(dnf);
         }
-        int sizeIProduct = dnf->products[i]->namesVariables.size();
-        for (int j = 0; j < sizeIProduct; ++j)
+        if (dnf->products.size() == 0)
         {
-            if (!newProduct->namesVariables.contains(dnf->products[i]->namesVariables[j]))
+            Product * result = equalProduct(product);
+            DNF * newDNF = new DNF;
+            newDNF->products.push_back(result);
+            return newDNF;
+        }
+    }
+    DNF * result = NULL;
+    int size = dnf->products.size();
+    for (int i = 0; i < size; ++i)
+    {
+        Product * newProduct = ProductAndProduct(product, dnf->products[i]);
+        if (newProduct != NULL)
+        {
+            if (result != NULL)
             {
-                newProduct->namesVariables.push_back(dnf->products[i]->namesVariables[j]);
-                newProduct->zeroOrOne + dnf->products[i]->zeroOrOne[j];
+                result->products.push_back(newProduct);
+            }
+            else
+            {
+                result = new DNF;
+                result->products.push_back(newProduct);
             }
         }
-        result->products.push_back(newProduct);
     }
     reduceDNF(result);
     absorbDNF(result);
@@ -177,6 +262,18 @@ DNF * ProductAndDNF(Product * product, DNF * dnf)
 
 bool CompareProducts(Product * product1, Product * product2)
 {
+    if (product1 == NULL && product2 == NULL)
+        return true;
+    else
+    {
+        if ((product1 == NULL && product2 != NULL) || (product1 != NULL && product2 == NULL))
+            return false;
+        else
+        {
+            if (product1->namesVariables.size() == 0 && product2->namesVariables.size() == 0)
+                return true;
+        }
+    }
     if (product1->namesVariables.size() != product2->namesVariables.size())
     {
         return false;
@@ -207,43 +304,17 @@ bool CompareProducts(Product * product1, Product * product2)
 
 DNF * DNF_OR_DNF(DNF * dnf1, DNF * dnf2)
 {
-    DNF * result = new DNF;
-    int sizeDNF1 = dnf1->products.size();
-    for (int i = 0; i < sizeDNF1; ++i)
+    if (dnf1 == NULL && dnf2 == NULL)
+        return NULL;
+    if (dnf1 == NULL && dnf2 != NULL)
+        return equalDNF(dnf2);
+    if (dnf1 != NULL && dnf2 == NULL)
+        return equalDNF(dnf1);
+    DNF * result = equalDNF(dnf1);
+    int size = dnf2->products.size();
+    for (int i = 0; i < size; ++i)
     {
-        Product * newProduct = new Product;
-        int sizeProduct = dnf1->products[i]->namesVariables.size();
-        for (int j = 0; j < sizeProduct; ++j)
-        {
-            newProduct->namesVariables.push_back(dnf1->products[i]->namesVariables[j]);
-            newProduct->zeroOrOne + dnf1->products[i]->zeroOrOne[j];
-        }
-        result->products.push_back(newProduct);
-    }
-    int sizeDNF2 = dnf2->products.size();
-    bool cont = false;
-    for (int i = 0; i < sizeDNF2; ++i)
-    {
-        for (int j = 0; j < sizeDNF1; ++j)
-        {
-            if (CompareProducts(dnf1->products[j], dnf2->products[i]))
-            {
-                cont = true;
-                break;
-            }
-        }
-        if (cont)
-        {
-            cont = false;
-            continue;
-        }
-        Product * newProduct = new Product;
-        int sizeProduct = dnf2->products[i]->namesVariables.size();
-        for (int j = 0; j < sizeProduct; ++j)
-        {
-            newProduct->namesVariables.push_back(dnf2->products[i]->namesVariables[j]);
-            newProduct->zeroOrOne + dnf2->products[i]->zeroOrOne[j];
-        }
+        Product * newProduct = equalProduct(dnf2->products[i]);
         result->products.push_back(newProduct);
     }
     reduceDNF(result);
@@ -253,7 +324,17 @@ DNF * DNF_OR_DNF(DNF * dnf1, DNF * dnf2)
 
 DNF * DNF_AND_DNF(DNF * dnf1, DNF * dnf2)
 {
-    DNF * result = new DNF;
+    if (dnf1 == NULL || dnf2 == NULL)
+        return NULL;
+    if (dnf1->products.size() == 0)
+    {
+        return equalDNF(dnf2);
+    }
+    if (dnf2->products.size() == 0)
+    {
+        return equalDNF(dnf1);
+    }
+    DNF * result = NULL;
     int sizeDnf2 = dnf2->products.size();
     for (int i = 0; i < sizeDnf2; ++i)
     {
@@ -262,6 +343,11 @@ DNF * DNF_AND_DNF(DNF * dnf1, DNF * dnf2)
         removeDNF(result);
         result = forResult;
     }
+    if (result && result->products.size() == 0)
+    {
+        removeDNF(result);
+        result = NULL;
+    }
     reduceDNF(result);
     absorbDNF(result);
     return result;
@@ -269,26 +355,41 @@ DNF * DNF_AND_DNF(DNF * dnf1, DNF * dnf2)
 
 void removeProduct(Product * product)
 {
+    if (product == NULL)
+        return;
     int size = product->namesVariables.size();
     for (int i = 0; i < size; ++i)
     {
         delete product->namesVariables[i];
     }
+    delete product;
 }
 
 void removeDNF(DNF * dnf)
 {
+    if (dnf == NULL)
+        return;
     int size = dnf->products.size();
     for (int i = 0; i < size; ++i)
     {
         removeProduct(dnf->products[i]);
     }
-    dnf->products.clear();
+    delete dnf;
 }
 
 void showDNF(DNF * dnf)
 {
+    if (dnf == NULL)
+    {
+        std::cout << "0";
+        return;
+    }
     int size = dnf->products.size();
+    if (size == 0)
+    {
+        std::cout << "1";
+        return;
+    }
     for (int i = 0; i < size; ++i)
     {
         int sizeProduct = dnf->products[i]->namesVariables.size();
@@ -313,13 +414,19 @@ void showDNF(DNF * dnf)
 
 void reduceDNF(DNF * dnf)
 {
+    if (dnf == NULL)
+        return;
     int size = dnf->products.size();
     for (int i = 0; i < size; ++i)
     {
-        for (int j = i + 1; j < size; ++j)
+        for (int j = 0; j < size; ++j)
         {
-            if (CompareProducts(dnf->products[i], dnf->products[j]))
+            if (i != j && CompareProducts(dnf->products[i], dnf->products[j]))
             {
+                if (j < i)
+                {
+                    i--;
+                }
                 dnf->products.remove(j);
                 size--;
             }
@@ -329,12 +436,19 @@ void reduceDNF(DNF * dnf)
 
 DNF * inversionProduct(Product * product)
 {
+    if (product == NULL)
+        return new DNF;
     DNF * result = new DNF;
     int size = product->namesVariables.size();
+    if (size == 0)
+    {
+        removeDNF(result);
+        return NULL;
+    }
     for (int i = 0; i < size; ++i)
     {
         Product * newProduct = new Product;
-        newProduct->namesVariables.push_back(product->namesVariables[i]);
+        newProduct->namesVariables.push_back(new QString(*(product->namesVariables[i])));
         if (product->zeroOrOne[i] == '1')
         {
             newProduct->zeroOrOne = newProduct->zeroOrOne + '0';
@@ -350,9 +464,15 @@ DNF * inversionProduct(Product * product)
 
 DNF * inversionDNF(DNF * dnf)
 {
+    if (dnf == NULL)
+        return new DNF;
     DNF * result;
-    result = inversionProduct(dnf->products[0]);
     int size = dnf->products.size();
+    if (size == 0)
+    {
+        return NULL;
+    }
+    result = inversionProduct(dnf->products[0]);
     for (int i = 1; i < size; ++i)
     {
         DNF * multResult = inversionProduct(dnf->products[i]);
@@ -368,13 +488,19 @@ DNF * inversionDNF(DNF * dnf)
 
 void absorbDNF(DNF * dnf)
 {
+    if (dnf == NULL)
+        return;
     int size = dnf->products.size();
     for (int i = 0; i < size; ++i)
     {
-        for (int j = i + 1; j < size; ++j)
+        for (int j = 0; j < size; ++j)
         {
-            if (absorbProduct(dnf->products[i], dnf->products[j]))
+            if (i != j && absorbProduct(dnf->products[i], dnf->products[j]))
             {
+                if (j < i)
+                {
+                    i--;
+                }
                 dnf->products.remove(j);
                 size--;
             }
@@ -384,6 +510,12 @@ void absorbDNF(DNF * dnf)
 
 bool absorbProduct(Product * product1, Product * product2)
 {
+    if (product1 == NULL && product2 == NULL)
+        return true;
+    if (product1->namesVariables.size() == 0 && product2->namesVariables.size() == 0)
+    {
+        return true;
+    }
     if (product1->namesVariables.size() > product2->namesVariables.size())
     {
         return false;
@@ -453,7 +585,11 @@ DNF * getDNF(Element * element)
 
 QString correctDNF(DNF * dnf, SourceSystem * sourceSystem)
 {
+    if (dnf == NULL)
+        return "";
     int size = dnf->products.size();
+    if (size == 0)
+        return "";
     for (int i = 0; i < size; ++i)
     {
         int sizeProduct = dnf->products[i]->namesVariables.size();
@@ -479,7 +615,6 @@ QString correctDNF(DNF * dnf, SourceSystem * sourceSystem)
 DNF * substitute(DNF * dnf, QString sym, DNF * substitution)
 {
     DNF * invSubstitution = inversionDNF(substitution);
-    showDNF(invSubstitution);
     DNF * result = new DNF;
     int size = dnf->products.size();
     for (int i = 0; i < size; ++i)
@@ -507,7 +642,6 @@ DNF * substitute(DNF * dnf, QString sym, DNF * substitution)
                     removeDNF(result);
                     result = newResult;
                     removeDNF(partDNF);
-                    showDNF(result);
                 }
                 else
                 {
@@ -539,6 +673,63 @@ DNF * substitute(DNF * dnf, QString sym, DNF * substitution)
     return result;
 }
 
+DNF * subVal(DNF * dnf, QString sym, char valSym)
+{
+    if (dnf == NULL)
+        return NULL;
+    DNF * result = new DNF;
+    int size = dnf->products.size();
+    if (size == 0)
+        return result;
+    for (int i = 0; i < size; ++i)
+    {
+        int sizeProduct = dnf->products[i]->namesVariables.size();
+        for (int j = 0; j < sizeProduct; ++j)
+        {
+            if (*(dnf->products[i]->namesVariables[j]) == sym)
+            {
+                if (dnf->products[i]->zeroOrOne[j] == valSym)
+                {
+                    if (sizeProduct == 1)
+                    {
+                        removeDNF(result);
+                        return new DNF;
+                    }
+                    Product * product = new Product;
+                    for (int k = 0; k < sizeProduct; ++k)
+                    {
+                        if (k != j)
+                        {
+                            product->namesVariables.push_back(
+                                        new QString(*(dnf->products[i]->namesVariables[k])));
+                            product->zeroOrOne = product->zeroOrOne +
+                                    dnf->products[i]->zeroOrOne[k];
+                        }
+                    }
+                    result->products.push_back(product);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                if (j == sizeProduct - 1)
+                {
+                    Product * product = equalProduct(dnf->products[i]);
+                    result->products.push_back(product);
+                }
+            }
+        }
+    }
+    if (result && result->products.size() == 0)
+    {
+        return NULL;
+    }
+    return result;
+}
+
 QVector <DNF *> algorithm(SourceSystem * sourceSystem)
 {
     QVector <DNF *> result;
@@ -548,14 +739,115 @@ QVector <DNF *> algorithm(SourceSystem * sourceSystem)
     {
         DNF * substitution = getDNF(sourceSystem->blocks[varNotBegin]);
         DNF * newDNF = substitute(dnf, varNotBegin, substitution);
-       // showDNF(newDNF);
         removeDNF(dnf);
         dnf = newDNF;
         removeDNF(substitution);
         varNotBegin = correctDNF(dnf, sourceSystem);
-        break;
     }
-    //showDNF(dnf);
-
+    int sizeInputs = sourceSystem->inputs.size();
+    Product * invVar = new Product;
+    invVar->zeroOrOne = invVar->zeroOrOne + '0';
+    invVar->namesVariables.push_back(new QString(""));
+    Product * var = new Product;
+    var->zeroOrOne = var->zeroOrOne + '1';
+    var->namesVariables.push_back(new QString(""));
+    for (int i = 0; i < sizeInputs; ++i)
+    {
+        DNF * x = subVal(dnf, *(sourceSystem->inputs[i]), '0');
+        DNF * y = subVal(dnf, *(sourceSystem->inputs[i]), '1');
+        DNF * notX = inversionDNF(x);
+        DNF * notY = inversionDNF(y);
+        DNF * xAndNotY = DNF_AND_DNF(x, notY);
+        DNF * notXAndY = DNF_AND_DNF(notX, y);
+        DNF * sumModTwo = DNF_OR_DNF(xAndNotY, notXAndY);
+        removeDNF(x);
+        removeDNF(y);
+        removeDNF(notX);
+        removeDNF(notY);
+        removeDNF(xAndNotY);
+        removeDNF(notXAndY);
+        reduceDNF(sumModTwo);
+        absorbDNF(sumModTwo);
+        *(var->namesVariables[0]) = *(sourceSystem->inputs[i]);
+        *(invVar->namesVariables[0]) = *(sourceSystem->inputs[i]);
+        result.push_back(ProductAndDNF(var, sumModTwo));
+        result.push_back(ProductAndDNF(invVar, sumModTwo));
+    }
     return result;
+}
+
+void showResult(QVector <DNF *> arrayDNF, SourceSystem * sourceSystem)
+{
+    int size = sourceSystem->inputs.size();
+    for (int i = 0; i < size; ++i)
+    {
+        std::cout << sourceSystem->inputs[i]->toStdString() << "/0 - ";
+        DNF * zero = arrayDNF[2*i];
+        DNF * one = arrayDNF[2*i + 1];
+        int sizeZero = 0;
+        if (zero != NULL)
+            sizeZero = zero->products.size();
+        for (int j = 0; j < sizeZero; ++j)
+        {
+            std::cout << "(";
+            for (int k = 0; k < size; ++k)
+            {
+                int sizeProduct = zero->products[j]->namesVariables.size();
+                for (int t = 0; t < sizeProduct; ++t)
+                {
+                    if (*(sourceSystem->inputs[k]) == *(zero->products[j]->namesVariables[t]))
+                    {
+                        std::cout << zero->products[j]->zeroOrOne.toStdString()[t];
+                        break;
+                    }
+                    if (t == sizeProduct - 1)
+                    {
+                        std::cout << "-";
+                    }
+                }
+            }
+            if (j == sizeZero - 1)
+            {
+                std::cout << ").";
+            }
+            else
+            {
+                std::cout << "),";
+            }
+        }
+        std::cout << "\n";
+        std::cout << sourceSystem->inputs[i]->toStdString() << "/1 - ";
+        int sizeOne = 0;
+        if (one != NULL)
+            sizeOne = one->products.size();
+        for (int j = 0; j < sizeOne; ++j)
+        {
+            std::cout << "(";
+            for (int k = 0; k < size; ++k)
+            {
+                int sizeProduct = one->products[j]->namesVariables.size();
+                for (int t = 0; t < sizeProduct; ++t)
+                {
+                    if (*(sourceSystem->inputs[k]) == *(one->products[j]->namesVariables[t]))
+                    {
+                        std::cout << one->products[j]->zeroOrOne.toStdString()[t];
+                        break;
+                    }
+                    if (t == sizeProduct - 1)
+                    {
+                        std::cout << "-";
+                    }
+                }
+            }
+            if (j == sizeOne - 1)
+            {
+                std::cout << ").";
+            }
+            else
+            {
+                std::cout << "),";
+            }
+        }
+        std::cout << "\n";
+    }
 }

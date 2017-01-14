@@ -3,9 +3,17 @@
 
 #include "global.h"
 
+Product * ProductAndProduct(Product * product1, Product * product2);
+
+bool validWord(std::string word);
+
 void readSourceSystem(SourceSystem * sourceSystem, QString blif);
 
 void showSourceSystem(SourceSystem * sourceSystem);
+
+Product * equalProduct(Product * product);
+
+DNF * equalDNF(DNF * dnf);
 
 DNF * ProductAndDNF(Product * product, DNF * dnf);
 
@@ -37,6 +45,10 @@ QString correctDNF(DNF * dnf, SourceSystem * sourceSystem);
 
 DNF * substitute(DNF * dnf, QString sym, DNF * substitution);
 
+DNF * subVal(DNF * dnf, QString sym, char valSym);
+
 QVector <DNF *> algorithm(SourceSystem * sourceSystem);
+
+void showResult(QVector <DNF *> arrayDNF, SourceSystem * sourceSystem);
 
 #endif // FUNCTIONS_H

@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
         SourceSystem * sourceSystem = new SourceSystem;
 
         // В дальнейшем это будет argv[1].
-        QString blif = "cm42a.blif";
+        QString blif = "c432.blif";
 
         readSourceSystem(sourceSystem, blif);
 
@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
         // Массив ДНФ соответствует порядку входных переменных сперва 0 потом 1 и так для
         // каждой.
         QVector <DNF *> arrayDNF = algorithm(sourceSystem);
+
+        showResult(arrayDNF, sourceSystem);
+        // Короче, необходимо добавить обработку случая когда днф константа и ноль.
     }
     catch(Exception e)
     {
